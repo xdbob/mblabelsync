@@ -7,8 +7,10 @@ import "github.com/laochailan/notmuch-go"
 import "io/ioutil"
 import "log"
 import "os"
+import "os/exec"
 import "os/user"
 import "path"
+import "strings"
 
 // Current limitations: A maildir cannot be named {'cur','new','tmp'}
 // Only one account can be handled
@@ -282,8 +284,16 @@ func main() {
 	}
 
 	if (cmds & MAILS_SYNC) == MAILS_SYNC {
-		fmt.Println("mail sync not implemented yet")
-		// XXX: TODO
+		prnt(1, "Executing '%s'", conf.sync)
+		msync := strings.Split(conf.sync, " ")
+		if !conf.dryrun {
+			cmd := exec.Command(msync[0], msync[1:]...)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				prnt(1, "Synchronization failed: %v", err)
+			}
+		}
 	}
 	if (cmds & NOTMUCH_UPDATE) == NOTMUCH_UPDATE {
 		fmt.Println("Notmuch update not implemented yet")
