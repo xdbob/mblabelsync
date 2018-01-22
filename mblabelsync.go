@@ -26,7 +26,7 @@ type cfg struct {
 	sync     string
 }
 
-var conf cfg = cfg{"", "new", true, 1, "mbsync -a"}
+var conf cfg = cfg{"", "new", false, 1, "mbsync -a"}
 
 func parseArgs() {
 	usr, _ := user.Current()
