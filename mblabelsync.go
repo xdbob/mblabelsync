@@ -296,8 +296,14 @@ func main() {
 		}
 	}
 	if (cmds & NOTMUCH_UPDATE) == NOTMUCH_UPDATE {
-		fmt.Println("Notmuch update not implemented yet")
-		// XXX: TODO
+		if !conf.dryrun {
+			cmd := exec.Command("notmuch", "new")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				prnt(1, "Notmuch update failed: %v", err)
+			}
+		}
 	}
 
 	if (cmds & POST_CMDS) != 0 {
