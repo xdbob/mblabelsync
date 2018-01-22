@@ -3,8 +3,8 @@ package main
 import "container/list"
 import "flag"
 import "fmt"
-import "github.com/laochailan/notmuch-go"
 import "github.com/sloonz/go-maildir"
+import "github.com/xdbob/notmuch-go"
 import "io/ioutil"
 import "log"
 import "os"
@@ -263,6 +263,41 @@ func moveMails(md, basedir string, db *notmuch.Database, dry bool) {
 	}
 }
 
+func delMails(md, basedir string, db *notmuch.Database, dry bool) {
+	query := fmt.Sprintf("folder:\"%[1]s\" NOT tag:\"%[1]s\"", md)
+	newquery := db.CreateQuery(query)
+	if newquery == nil {
+		log.Fatalf("Could not create query '%s'\n", query)
+	}
+	defer newquery.Destroy()
+
+	if count := newquery.CountMessages(); count == 0 {
+		prnt(1, "No mails to remove from %s", md)
+		return
+	} else {
+		prnt(1, "%d mails to remove from %s", count, md)
+	}
+	dir := path.Join(basedir, md)
+
+	for msg := newquery.SearchMessages(); msg.Valid(); msg.MoveToNext() {
+		curmsg := msg.Get()
+		for fn := curmsg.GetFileNames(); fn.Valid(); fn.MoveToNext() {
+			msgPath := fn.Get()
+			if path.Clean(msgPath+"/../..") == dir {
+				prnt(2, "Removing '%s' at %s",
+					curmsg.GetHeader("Subject"), msgPath)
+				if !dry {
+					if os.Remove(msgPath) != nil {
+						prnt(0, "Could not remove File")
+					}
+				}
+				break
+			}
+		}
+		curmsg.Destroy()
+	}
+}
+
 func doPreCmds(cmds int, mboxes []string) {
 	db, _ := notmuch.OpenDatabase(conf.nmDB,
 		notmuch.DATABASE_MODE_READ_ONLY)
@@ -279,8 +314,9 @@ func doPreCmds(cmds int, mboxes []string) {
 		}
 	}
 	if (cmds & RM_CHANGED) == RM_CHANGED {
-		fmt.Println("Rm changed not implemented yet")
-		// XXX: TODO
+		for _, m := range mboxes {
+			delMails(m, conf.nmDB, db, conf.dryrun)
+		}
 	}
 }
 
