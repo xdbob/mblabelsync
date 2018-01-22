@@ -9,7 +9,6 @@ import "log"
 import "os"
 import "os/user"
 import "path"
-import "path/filepath"
 
 // Current limitations: A maildir cannot be named {'cur','new','tmp'}
 // Only one account can be handled
@@ -188,15 +187,10 @@ func addTags(maildir, basedir string, db *notmuch.Database, dry bool) {
 
 	for msg := newquery.SearchMessages(); msg.Valid(); msg.MoveToNext() {
 		curmsg := msg.Get()
-		rel, err := filepath.Rel(basedir, curmsg.GetFileName())
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Mail at an unexpected location")
-		}
-		msgPos := path.Clean(fmt.Sprintf("%s/../..", rel))
-		prnt(2, fmt.Sprintf("Tagging '%s' as '%s'.",
-			curmsg.GetHeader("Subject"), msgPos))
+		prnt(2, "Tagging '%s' as '%s'.",
+			curmsg.GetHeader("Subject"), maildir)
 		if !dry {
-			curmsg.AddTag(msgPos)
+			curmsg.AddTag(maildir)
 		}
 		curmsg.Destroy()
 	}
