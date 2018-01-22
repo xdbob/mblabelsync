@@ -4,6 +4,7 @@ import "container/list"
 import "flag"
 import "fmt"
 import "github.com/laochailan/notmuch-go"
+import "github.com/sloonz/go-maildir"
 import "io/ioutil"
 import "log"
 import "os"
@@ -224,10 +225,58 @@ func delTags(maildir, basedir string, db *notmuch.Database, dry bool) {
 	}
 }
 
+func moveMails(md, basedir string, db *notmuch.Database, dry bool) {
+	query := fmt.Sprintf("tag:\"%[1]s\" NOT folder:\"%[1]s\"", md)
+	newquery := db.CreateQuery(query)
+	if newquery == nil {
+		log.Fatalf("Could not create query '%s'\n", query)
+	}
+	defer newquery.Destroy()
+
+	if count := newquery.CountMessages(); count == 0 {
+		prnt(1, "No mails to copy to %s", md)
+		return
+	} else {
+		prnt(1, "%d mails to copy to %s", count, md)
+	}
+	var dir *maildir.Maildir
+	if !dry {
+		var err error
+		dir, err = maildir.New(path.Join(basedir, md), false)
+		if err != nil {
+			log.Fatal("Could not open maildir %s\n", path.Join(basedir, md))
+		}
+	}
+	for msg := newquery.SearchMessages(); msg.Valid(); msg.MoveToNext() {
+		curmsg := msg.Get()
+		prnt(2, "Copying mail '%s' to %s.", curmsg.GetHeader("Subject"),
+			md)
+		if !dry {
+			mail, err := os.Open(curmsg.GetFileName())
+			if err != nil {
+				prnt(0, "Could not open mail '%s' for copy",
+					curmsg.GetFileName())
+			}
+			dir.CreateMail(mail)
+		}
+		curmsg.Destroy()
+	}
+}
+
 func doPreCmds(cmds int, mboxes []string) {
+	db, _ := notmuch.OpenDatabase(conf.nmDB,
+		notmuch.DATABASE_MODE_READ_ONLY)
+	if db == nil {
+		fmt.Fprintln(os.Stderr, "Failed to load database at ",
+			conf.nmDB)
+		os.Exit(1)
+	}
+	defer db.Close()
+
 	if (cmds & COPY_CHANGED) == COPY_CHANGED {
-		fmt.Println("Copy changed not implemented yet")
-		// XXX: TODO
+		for _, m := range mboxes {
+			moveMails(m, conf.nmDB, db, conf.dryrun)
+		}
 	}
 	if (cmds & RM_CHANGED) == RM_CHANGED {
 		fmt.Println("Rm changed not implemented yet")
