@@ -210,7 +210,7 @@ func delTags(maildir, basedir string, db *notmuch.Database, dry bool) {
 		prnt(1, "No mails to untag from %s", maildir)
 		return
 	} else {
-		prnt(1, "%d mails to untag from ", count, maildir)
+		prnt(1, "%d mails to untag from %s", count, maildir)
 	}
 
 	for msg := newquery.SearchMessages(); msg.Valid(); msg.MoveToNext() {
