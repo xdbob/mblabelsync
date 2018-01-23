@@ -3,8 +3,8 @@ package main
 import "container/list"
 import "flag"
 import "fmt"
-import "github.com/sloonz/go-maildir"
 import "github.com/xdbob/notmuch-go"
+import "io"
 import "io/ioutil"
 import "log"
 import "os"
@@ -12,6 +12,7 @@ import "os/exec"
 import "os/user"
 import "path"
 import "strings"
+import "time"
 
 // Current limitations: A maildir cannot be named {'cur','new','tmp'}
 // Only one account can be handled
@@ -27,6 +28,8 @@ type cfg struct {
 }
 
 var conf cfg = cfg{"", "new", false, 1, "mbsync -a"}
+
+var maildirCount uint = 0
 
 func parseArgs() {
 	usr, _ := user.Current()
@@ -225,6 +228,58 @@ func delTags(maildir, basedir string, db *notmuch.Database, dry bool) {
 	}
 }
 
+func craftMailName(tags *notmuch.Tags) string {
+	host, err := os.Hostname()
+	if err != nil {
+		host = "unknown"
+	}
+	name := fmt.Sprintf("%v.%v_%v.%s:2,",
+		time.Now().Unix(),
+		os.Getpid(),
+		maildirCount,
+		host)
+	maildirCount++
+
+	u, r, p, f, d, t := false, false, false, false, false, false
+	for ; tags.Valid(); tags.MoveToNext() {
+		switch tags.Get() {
+		case "unread":
+			u = true
+		case "replied":
+			r = true
+		case "trashed":
+			t = true
+		case "draft":
+			d = true
+		case "flagged":
+			f = true
+		case "passed":
+			p = true
+		}
+	}
+	// This need to be in alphabetical order
+	if d {
+		name += "D"
+	}
+	if f {
+		name += "F"
+	}
+	if p {
+		name += "P"
+	}
+	if r {
+		name += "R"
+	}
+	if !u {
+		name += "S"
+	}
+	if t {
+		name += "T"
+	}
+
+	return name
+}
+
 func moveMails(md, basedir string, db *notmuch.Database, dry bool) {
 	query := fmt.Sprintf("tag:\"%[1]s\" NOT folder:\"%[1]s\"", md)
 	newquery := db.CreateQuery(query)
@@ -239,14 +294,7 @@ func moveMails(md, basedir string, db *notmuch.Database, dry bool) {
 	} else {
 		prnt(1, "%d mails to copy to %s", count, md)
 	}
-	var dir *maildir.Maildir
-	if !dry {
-		var err error
-		dir, err = maildir.New(path.Join(basedir, md), false)
-		if err != nil {
-			log.Fatal("Could not open maildir %s\n", path.Join(basedir, md))
-		}
-	}
+	dstDir := path.Join(path.Join(basedir, md), "cur")
 	for msg := newquery.SearchMessages(); msg.Valid(); msg.MoveToNext() {
 		curmsg := msg.Get()
 		prnt(2, "Copying mail '%s' to %s.", curmsg.GetHeader("Subject"),
@@ -256,8 +304,25 @@ func moveMails(md, basedir string, db *notmuch.Database, dry bool) {
 			if err != nil {
 				prnt(0, "Could not open mail '%s' for copy",
 					curmsg.GetFileName())
+				continue
 			}
-			dir.CreateMail(mail)
+			defer mail.Close()
+			to, err := os.OpenFile(path.Join(dstDir,
+				craftMailName(curmsg.GetTags())),
+				os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+			if err != nil {
+				prnt(0, "Could not create mail '%s'",
+					curmsg.GetHeader("Subject"))
+				continue
+			}
+			defer to.Close()
+			_, err = io.Copy(to, mail)
+			if err != nil {
+				prnt(0, "Could not copy mail '%s'",
+					curmsg.GetHeader("Subject"))
+				to.Close()
+				os.Remove(to.Name())
+			}
 		}
 		curmsg.Destroy()
 	}
