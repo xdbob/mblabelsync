@@ -1,18 +1,20 @@
 package main
 
-import "container/list"
-import "flag"
-import "fmt"
-import "github.com/xdbob/notmuch-go"
-import "io"
-import "io/ioutil"
-import "log"
-import "os"
-import "os/exec"
-import "os/user"
-import "path"
-import "strings"
-import "time"
+import (
+	"container/list"
+	"flag"
+	"fmt"
+	"github.com/xdbob/notmuch-go"
+	"io"
+	"io/ioutil"
+	"log"
+	"os"
+	"os/exec"
+	"os/user"
+	"path"
+	"strings"
+	"time"
+)
 
 // Current limitations: A maildir cannot be named {'cur','new','tmp'}
 // Only one account can be handled
