@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/xdbob/notmuch-go"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -318,7 +317,7 @@ func moveMails(md, basedir string, db *notmuch.Database, dry bool) {
 				continue
 			}
 			defer to.Close()
-			_, err = io.Copy(to, mail)
+			err = copyFile(mail, to)
 			if err != nil {
 				prnt(0, "Could not copy mail '%s'",
 					curmsg.GetHeader("Subject"))
