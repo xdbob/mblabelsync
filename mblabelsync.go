@@ -185,6 +185,8 @@ func addTags(maildir, basedir string, db *notmuch.Database, dry bool) {
 	}
 	defer newquery.Destroy()
 
+	newquery.SetSort(notmuch.SORT_UNSORTED)
+
 	if count := newquery.CountMessages(); count == 0 {
 		prnt(1, "No mails to add to %s", maildir)
 		return
@@ -210,6 +212,8 @@ func delTags(maildir, basedir string, db *notmuch.Database, dry bool) {
 		log.Fatalf("Could not create query '%s'\n", query)
 	}
 	defer newquery.Destroy()
+
+	newquery.SetSort(notmuch.SORT_UNSORTED)
 
 	if count := newquery.CountMessages(); count == 0 {
 		prnt(1, "No mails to untag from %s", maildir)
@@ -289,6 +293,8 @@ func moveMails(md, basedir string, db *notmuch.Database, dry bool) {
 	}
 	defer newquery.Destroy()
 
+	newquery.SetSort(notmuch.SORT_UNSORTED)
+
 	if count := newquery.CountMessages(); count == 0 {
 		prnt(1, "No mails to copy to %s", md)
 		return
@@ -336,6 +342,8 @@ func delMails(md, basedir string, db *notmuch.Database, dry bool) {
 		log.Fatalf("Could not create query '%s'\n", query)
 	}
 	defer newquery.Destroy()
+
+	newquery.SetSort(notmuch.SORT_UNSORTED)
 
 	if count := newquery.CountMessages(); count == 0 {
 		prnt(1, "No mails to remove from %s", md)
