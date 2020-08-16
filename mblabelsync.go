@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path"
+	"runtime/trace"
 	"strings"
 	"time"
 )
@@ -26,9 +27,10 @@ type cfg struct {
 	dryrun   bool
 	loglevel int
 	sync     string
+	trace    string
 }
 
-var conf cfg = cfg{"", "new", false, 1, "mbsync -a"}
+var conf cfg = cfg{"", "new", false, 1, "mbsync -a", ""}
 
 var maildirCount uint = 0
 
@@ -42,6 +44,7 @@ func parseArgs() {
 		vNew   = "new tag (to remove) from notmuch"
 		vHelp  = "Show this message"
 		vSync  = "Sync command"
+		vTrace = "Trace file (empty to disable)"
 		s      = " (shorthand)"
 	)
 
@@ -50,6 +53,7 @@ func parseArgs() {
 	flag.StringVar(&conf.nmDB, "notmuch-database", conf.nmDB, vDB)
 	flag.StringVar(&conf.newtag, "newtag", conf.newtag, vNew)
 	flag.StringVar(&conf.sync, "sync", conf.sync, vSync)
+	flag.StringVar(&conf.trace, "trace", conf.trace, vTrace)
 	help := flag.Bool("help", false, vHelp)
 
 	flag.IntVar(&conf.loglevel, "v", conf.loglevel, vUsage+s)
@@ -421,6 +425,18 @@ func doPostCmds(cmds int, mboxes []string) {
 
 func main() {
 	parseArgs()
+	if conf.trace != "" {
+		f, err := os.Create(conf.trace)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		err = trace.Start(f)
+		if err != nil {
+			panic(err)
+		}
+		defer trace.Stop()
+	}
 	args := flag.Args()
 	if len(args) == 0 {
 		Usage()
